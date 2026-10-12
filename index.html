@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Comportamiento Estructural de Vigas</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Iconos de FontAwesome para la interfaz -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="logo-area">
+            <i class="fa-solid fa-archway"></i>
+            <h1>StructuraSim <span class="badge">Vigas & Cargas</span></h1>
+        </div>
+        <p class="subtitle">Simulador interactivo de flexión y distribución de esfuerzos estructurales</p>
+    </header>
+
+    <main class="app-container">
+        <!-- Panel de Control (Sidebar) -->
+        <aside class="control-panel">
+            <h2><i class="fa-solid fa-sliders"></i> Parámetros de Diseño</h2>
+            
+            <div class="control-group">
+                <label for="materialSelect"><i class="fa-solid fa-cubes"></i> Material:</label>
+                <select id="materialSelect">
+                    <option value="concreto">Concreto Armado ($E = 25 \text{ GPa}$)</option>
+                    <option value="acero" selected>Acero Estructural ($E = 200 \text{ GPa}$)</option>
+                    <option value="madera">Madera Laminada ($E = 11 \text{ GPa}$)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="supportSelect"><i class="fa-solid fa-anchor"></i> Tipo de Apoyo:</label>
+                <select id="supportSelect">
+                    <option value="simplementeApoyada" selected>Simplemente Apoyada (Articulada-Articulada)</option>
+                    <option value="empotrada">Voladizo (Empotrada en un extremo)</option>
+                    <option value="continua">Bi-empotrada (Ambos extremos fijos)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="loadType"><i class="fa-solid fa-weight-hanging"></i> Tipo de Carga:</label>
+                <select id="loadType">
+                    <option value="puntual" selected>Carga Puntual al Centro</option>
+                    <option value="distribuida">Carga Distribuida Uniforme</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="loadMagnitude">Magnitud de Carga ($P$ / $w$): <span id="loadVal">50</span> kN</label>
+                <input type="range" id="loadMagnitude" min="10" max="150" value="50" step="5">
+            </div>
+
+            <div class="control-group">
+                <label for="beamLength">Longitud de la Luz ($L$): <span id="lengthVal">6</span> m</label>
+                <input type="range" id="beamLength" min="3" max="12" value="6" step="0.5">
+            </div>
+
+            <div class="control-group">
+                <label for="sectionWidth">Ancho de Sección ($b$): <span id="widthVal">30</span> cm</label>
+                <input type="range" id="sectionWidth" min="15" max="60" value="30" step="5">
+            </div>
+
+            <div class="control-group">
+                <label for="sectionHeight">Peralte / Altura ($h$): <span id="heightVal">50</span> cm</label>
+                <input type="range" id="sectionHeight" min="20" max="100" value="50" step="5">
+            </div>
+
+            <button id="resetBtn" class="btn-secondary"><i class="fa-solid fa-rotate-left"></i> Restablecer Valores</button>
+        </aside>
+
+        <!-- Área de Visualización del Simulador -->
+        <section class="simulation-workspace">
+            <div class="canvas-card">
+                <div class="canvas-header">
+                    <h3><i class="fa-solid fa-chart-line"></i> Modelo de Deformación y Mapa de Esfuerzos</h3>
+                    <div class="legend">
+                        <span class="dot safe"></span> Zona Segura
+                        <span class="dot warning"></span> Tensión Moderada
+                        <span class="dot danger"></span> Esfuerzo Crítico
+                    </div>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="beamCanvas" width="800" height="400"></canvas>
+                </div>
+            </div>
+
+            <!-- Panel de Resultados de Cálculo en Tiempo Real -->
+            <div class="results-grid">
+                <div class="result-card">
+                    <i class="fa-solid fa-arrow-down-long"></i>
+                    <div>
+                        <span class="res-title">Flecha Máxima ($\delta_{\max}$)</span>
+                        <h4 id="resDeflection">0.00 mm</h4>
+                    </div>
+                </div>
+                <div class="result-card">
+                    <i class="fa-solid fa-fire"></i>
+                    <div>
+                        <span class="res-title">Esfuerzo Máximo ($\sigma_{\max}$)</span>
+                        <h4 id="resStress">0.00 MPa</h4>
+                    </div>
+                </div>
+                <div class="result-card">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <div>
+                        <span class="res-title">Factor de Seguridad (FS)</span>
+                        <h4 id="resSafety">Seguro</h4>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
