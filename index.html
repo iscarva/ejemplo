@@ -1,120 +1,630 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Comportamiento Estructural de Vigas</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Iconos de FontAwesome para la interfaz -->
+    <title>StructuraSim 3D - Simulador de Estructuras Avanzado</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#090d16',
+                        panelBg: '#111827',
+                        cardBg: '#1f2937',
+                        accent: '#0ea5e9',
+                        accentHover: '#0284c7'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    </style>
 </head>
-<body>
+<body class="bg-darkBg text-slate-100 min-h-screen flex flex-col overflow-x-hidden">
 
-    <header class="app-header">
-        <div class="logo-area">
-            <i class="fa-solid fa-archway"></i>
-            <h1>StructuraSim <span class="badge">Vigas & Cargas</span></h1>
+    <header class="bg-panelBg/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-xl">
+                <i class="fa-solid fa-cube"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight flex items-center gap-2">
+                    StructuraSim <span class="bg-accent/10 text-accent text-xs font-semibold px-2.5 py-0.5 rounded-full border border-accent/20">3D Pro</span>
+                </h1>
+                <p class="text-xs text-slate-400">Simulador Avanzado de Elementos Estructurales y Esfuerzos</p>
+            </div>
         </div>
-        <p class="subtitle">Simulador interactivo de flexión y distribución de esfuerzos estructurales</p>
+        <div class="flex items-center gap-3">
+            <button id="toggleWireframe" class="px-3 py-1.5 bg-cardBg hover:bg-slate-700 text-xs font-medium rounded-lg border border-slate-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-border-all"></i> <span class="hidden sm:inline">Malla 3D</span>
+            </button>
+            <button id="resetCamBtn" class="px-3 py-1.5 bg-cardBg hover:bg-slate-700 text-xs font-medium rounded-lg border border-slate-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-video"></i> <span class="hidden sm:inline">Restablecer Cámara</span>
+            </button>
+        </div>
     </header>
 
-    <main class="app-container">
-        <!-- Panel de Control (Sidebar) -->
-        <aside class="control-panel">
-            <h2><i class="fa-solid fa-sliders"></i> Parámetros de Diseño</h2>
-            
-            <div class="control-group">
-                <label for="materialSelect"><i class="fa-solid fa-cubes"></i> Material:</label>
-                <select id="materialSelect">
-                    <option value="concreto">Concreto Armado ($E = 25 \text{ GPa}$)</option>
-                    <option value="acero" selected>Acero Estructural ($E = 200 \text{ GPa}$)</option>
-                    <option value="madera">Madera Laminada ($E = 11 \text{ GPa}$)</option>
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 p-6 max-w-[1700px] w-full mx-auto">
+        
+        <!-- Control Panel -->
+        <aside class="lg:col-span-1 bg-panelBg border border-slate-800/80 rounded-2xl p-5 flex flex-col gap-5 shadow-xl h-fit">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 class="text-sm font-semibold text-accent flex items-center gap-2 uppercase tracking-wider">
+                    <i class="fa-solid fa-sliders"></i> Parámetros de Diseño
+                </h2>
+                <span id="presetBadge" class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded">Personalizado</span>
+            </div>
+
+            <!-- Material Selection -->
+            <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-cubes text-accent"></i> Material Estructural
+                </label>
+                <select id="materialSelect" class="w-full bg-darkBg border border-slate-700 text-slate-200 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-accent transition">
+                    <option value="acero">Acero Estructural (E = 200 GPa)</option>
+                    <option value="concreto">Concreto Armado (E = 25 GPa)</option>
+                    <option value="madera">Madera Laminada (E = 11 GPa)</option>
+                    <option value="aluminio">Aleación de Aluminio (E = 70 GPa)</option>
                 </select>
             </div>
 
-            <div class="control-group">
-                <label for="supportSelect"><i class="fa-solid fa-anchor"></i> Tipo de Apoyo:</label>
-                <select id="supportSelect">
-                    <option value="simplementeApoyada" selected>Simplemente Apoyada (Articulada-Articulada)</option>
-                    <option value="empotrada">Voladizo (Empotrada en un extremo)</option>
-                    <option value="continua">Bi-empotrada (Ambos extremos fijos)</option>
+            <!-- Support Type -->
+            <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-anchor text-accent"></i> Condiciones de Apoyo
+                </label>
+                <select id="supportSelect" class="w-full bg-darkBg border border-slate-700 text-slate-200 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-accent transition">
+                    <option value="simplementeApoyada">Simplemente Apoyada (Articulada)</option>
+                    <option value="empotrada">Voladizo (Empotrada en extremo)</option>
+                    <option value="continua">Bi-empotrada (Fija en ambos extremos)</option>
                 </select>
             </div>
 
-            <div class="control-group">
-                <label for="loadType"><i class="fa-solid fa-weight-hanging"></i> Tipo de Carga:</label>
-                <select id="loadType">
-                    <option value="puntual" selected>Carga Puntual al Centro</option>
+            <!-- Load Type -->
+            <div class="space-y-1.5">
+                <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-weight-hanging text-accent"></i> Tipo de Carga Aplicada
+                </label>
+                <select id="loadType" class="w-full bg-darkBg border border-slate-700 text-slate-200 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-accent transition">
+                    <option value="puntual">Carga Concentrada al Centro</option>
                     <option value="distribuida">Carga Distribuida Uniforme</option>
+                    <option value="excentrica">Carga Puntual Excéntrica</option>
                 </select>
             </div>
 
-            <div class="control-group">
-                <label for="loadMagnitude">Magnitud de Carga ($P$ / $w$): <span id="loadVal">50</span> kN</label>
-                <input type="range" id="loadMagnitude" min="10" max="150" value="50" step="5">
+            <div class="border-t border-slate-800/80 pt-4 space-y-4">
+                <!-- Load Magnitude -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Magnitud de Carga (P / q)</span>
+                        <span id="loadVal" class="font-bold text-accent">50 kN</span>
+                    </div>
+                    <input type="range" id="loadMagnitude" min="10" max="200" value="50" step="5" class="w-full accent-accent cursor-pointer bg-darkBg h-2 rounded-lg">
+                </div>
+
+                <!-- Beam Length -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Longitud de la Luz (L)</span>
+                        <span id="lengthVal" class="font-bold text-accent">6.0 m</span>
+                    </div>
+                    <input type="range" id="beamLength" min="3" max="12" value="6" step="0.5" class="w-full accent-accent cursor-pointer bg-darkBg h-2 rounded-lg">
+                </div>
+
+                <!-- Section Width -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Ancho de Sección (b)</span>
+                        <span id="widthVal" class="font-bold text-accent">30 cm</span>
+                    </div>
+                    <input type="range" id="sectionWidth" min="15" max="60" value="30" step="5" class="w-full accent-accent cursor-pointer bg-darkBg h-2 rounded-lg">
+                </div>
+
+                <!-- Section Height -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Peralte / Altura (h)</span>
+                        <span id="heightVal" class="font-bold text-accent">50 cm</span>
+                    </div>
+                    <input type="range" id="sectionHeight" min="20" max="100" value="50" step="5" class="w-full accent-accent cursor-pointer bg-darkBg h-2 rounded-lg">
+                </div>
             </div>
 
-            <div class="control-group">
-                <label for="beamLength">Longitud de la Luz ($L$): <span id="lengthVal">6</span> m</label>
-                <input type="range" id="beamLength" min="3" max="12" value="6" step="0.5">
-            </div>
-
-            <div class="control-group">
-                <label for="sectionWidth">Ancho de Sección ($b$): <span id="widthVal">30</span> cm</label>
-                <input type="range" id="sectionWidth" min="15" max="60" value="30" step="5">
-            </div>
-
-            <div class="control-group">
-                <label for="sectionHeight">Peralte / Altura ($h$): <span id="heightVal">50</span> cm</label>
-                <input type="range" id="sectionHeight" min="20" max="100" value="50" step="5">
-            </div>
-
-            <button id="resetBtn" class="btn-secondary"><i class="fa-solid fa-rotate-left"></i> Restablecer Valores</button>
+            <button id="resetBtn" class="w-full mt-2 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> Restablecer Valores por Defecto
+            </button>
         </aside>
 
-        <!-- Área de Visualización del Simulador -->
-        <section class="simulation-workspace">
-            <div class="canvas-card">
-                <div class="canvas-header">
-                    <h3><i class="fa-solid fa-chart-line"></i> Modelo de Deformación y Mapa de Esfuerzos</h3>
-                    <div class="legend">
-                        <span class="dot safe"></span> Zona Segura
-                        <span class="dot warning"></span> Tensión Moderada
-                        <span class="dot danger"></span> Esfuerzo Crítico
+        <!-- Visualization Workspace -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- 3D Canvas Card -->
+            <div class="bg-panelBg border border-slate-800/80 rounded-2xl p-5 shadow-xl flex flex-col gap-4 relative overflow-hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <h3 class="text-sm font-semibold text-slate-200">Simulación 3D de Elemento Estructural & Mapa Térmico de Esfuerzos</h3>
+                    </div>
+                    <!-- Legend -->
+                    <div class="flex items-center gap-4 text-xs bg-darkBg/80 px-3.5 py-1.5 rounded-xl border border-slate-800">
+                        <span class="flex items-center gap-1.5 text-slate-300"><span class="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span> Zona Segura</span>
+                        <span class="flex items-center gap-1.5 text-slate-300"><span class="w-3 h-3 rounded-full bg-amber-400 inline-block"></span> Moderado</span>
+                        <span class="flex items-center gap-1.5 text-slate-300"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span> Crítico</span>
                     </div>
                 </div>
-                <div class="canvas-wrapper">
-                    <canvas id="beamCanvas" width="800" height="400"></canvas>
+
+                <!-- 3D Viewport Container -->
+                <div id="canvasContainer" class="w-full h-[450px] sm:h-[520px] bg-[#05080f] rounded-xl relative overflow-hidden border border-slate-800/60 shadow-inner flex items-center justify-center">
+                    <!-- Overlay instructions -->
+                    <div class="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur border border-slate-800 px-3 py-2 rounded-lg text-[11px] text-slate-400 pointer-events-none flex items-center gap-2 z-10">
+                        <i class="fa-solid fa-circle-info text-accent"></i> Usa clic izq + arrastrar para rotar, rueda para zoom y clic der para desplazar.
+                    </div>
                 </div>
             </div>
 
-            <!-- Panel de Resultados de Cálculo en Tiempo Real -->
-            <div class="results-grid">
-                <div class="result-card">
-                    <i class="fa-solid fa-arrow-down-long"></i>
+            <!-- Engineering Results Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-panelBg border border-slate-800/80 rounded-2xl p-4 shadow-lg flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-xl">
+                        <i class="fa-solid fa-arrow-down"></i>
+                    </div>
                     <div>
-                        <span class="res-title">Flecha Máxima ($\delta_{\max}$)</span>
-                        <h4 id="resDeflection">0.00 mm</h4>
+                        <span class="text-xs text-slate-400 font-medium block">Flecha Máxima (&delta; max)</span>
+                        <h4 id="resDeflection" class="text-lg font-bold text-slate-100 mt-0.5">0.00 mm</h4>
                     </div>
                 </div>
-                <div class="result-card">
-                    <i class="fa-solid fa-fire"></i>
+
+                <div class="bg-panelBg border border-slate-800/80 rounded-2xl p-4 shadow-lg flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-xl">
+                        <i class="fa-solid fa-fire"></i>
+                    </div>
                     <div>
-                        <span class="res-title">Esfuerzo Máximo ($\sigma_{\max}$)</span>
-                        <h4 id="resStress">0.00 MPa</h4>
+                        <span class="text-xs text-slate-400 font-medium block">Esfuerzo Máximo (&sigma; max)</span>
+                        <h4 id="resStress" class="text-lg font-bold text-slate-100 mt-0.5">0.00 MPa</h4>
                     </div>
                 </div>
-                <div class="result-card">
-                    <i class="fa-solid fa-shield-halved"></i>
+
+                <div class="bg-panelBg border border-slate-800/80 rounded-2xl p-4 shadow-lg flex items-center gap-4">
+                    <div id="safetyIconBg" class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl">
+                        <i id="safetyIcon" class="fa-solid fa-shield-halved"></i>
+                    </div>
                     <div>
-                        <span class="res-title">Factor de Seguridad (FS)</span>
-                        <h4 id="resSafety">Seguro</h4>
+                        <span class="text-xs text-slate-400 font-medium block">Factor de Seguridad (FS)</span>
+                        <h4 id="resSafety" class="text-lg font-bold text-emerald-400 mt-0.5">Seguro (FS > 1.5)</h4>
                     </div>
                 </div>
             </div>
+
         </section>
     </main>
 
-    <script src="script.js"></script>
+    <script>
+        // Material Database
+        const materials = {
+            acero:    { E: 200e9, sigmaAdm: 250, name: 'Acero Estructural', color: 0x94a3b8 },
+            concreto: { E: 25e9,  sigmaAdm: 15,  name: 'Concreto Armado',     color: 0x64748b },
+            madera:   { E: 11e9,  sigmaAdm: 10,  name: 'Madera Laminada',     color: 0xb45309 },
+            aluminio: { E: 70e9,  sigmaAdm: 160, name: 'Aleación Aluminio',   color: 0x38bdf8 }
+        };
+
+        // DOM Elements
+        const materialSelect = document.getElementById('materialSelect');
+        const supportSelect = document.getElementById('supportSelect');
+        const loadTypeSelect = document.getElementById('loadType');
+        const loadMagnitudeInput = document.getElementById('loadMagnitude');
+        const beamLengthInput = document.getElementById('beamLength');
+        const sectionWidthInput = document.getElementById('sectionWidth');
+        const sectionHeightInput = document.getElementById('sectionHeight');
+        const resetBtn = document.getElementById('resetBtn');
+        const toggleWireframeBtn = document.getElementById('toggleWireframe');
+        const resetCamBtn = document.getElementById('resetCamBtn');
+
+        const loadVal = document.getElementById('loadVal');
+        const lengthVal = document.getElementById('lengthVal');
+        const widthVal = document.getElementById('widthVal');
+        const heightVal = document.getElementById('heightVal');
+
+        const resDeflection = document.getElementById('resDeflection');
+        const resStress = document.getElementById('resStress');
+        const resSafety = document.getElementById('resSafety');
+        const safetyIconBg = document.getElementById('safetyIconBg');
+        const safetyIcon = document.getElementById('safetyIcon');
+
+        // Three.js Globals
+        let scene, camera, renderer, controls;
+        let beamMesh, supportsGroup, loadsGroup, gridHelper;
+        let isWireframe = false;
+        let animationId;
+
+        // Initialize Three.js Environment
+        function init3D() {
+            const container = document.getElementById('canvasContainer');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05080f);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 4, 10);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't go too far below ground
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            dirLight.position.set(10, 20, 15);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            const dirLight2 = new THREE.DirectionalLight(0x0ea5e9, 0.4);
+            dirLight2.position.set(-10, -10, -10);
+            scene.add(dirLight2);
+
+            // Floor Grid & Ground Base
+            gridHelper = new THREE.GridHelper(20, 20, 0x1e293b, 0x111827);
+            gridHelper.position.y = -2.5;
+            scene.add(gridHelper);
+
+            supportsGroup = new THREE.Group();
+            scene.add(supportsGroup);
+
+            loadsGroup = new THREE.Group();
+            scene.add(loadsGroup);
+
+            // Event Listeners for Resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Initial Build
+            updateSimulation();
+
+            // Start Render Loop
+            animate();
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvasContainer');
+            if (!container) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // Generate Deformed Beam Geometry with Vertex Color Stress Map
+        function createBeamGeometry(L, b, h, support, isDistributed, loadTypeVal, deflection, maxStressRatio) {
+            // We use a high segment count along the length to show smooth bending curves and stress gradients
+            const segmentsX = 64;
+            const segmentsY = 4;
+            const geometry = new THREE.BoxGeometry(L, h, b, segmentsX, segmentsY, segmentsY);
+            
+            const positionAttr = geometry.attributes.position;
+            const colors = [];
+            
+            for (let i = 0; i < positionAttr.count; i++) {
+                const x = positionAttr.getX(i); // ranges from -L/2 to L/2
+                const y = positionAttr.getY(i); // ranges from -h/2 to h/2 (height is along Y in BoxGeometry before rotation, but let's check orientation)
+                const z = positionAttr.getZ(i);
+
+                // Normalize x from [-L/2, L/2] to [0, 1] relative to beam span
+                const normX = (x + L / 2) / L;
+                
+                // Calculate analytical deflection curve y-displacement based on support and load
+                let dy = 0;
+                let localStressFactor = 0;
+
+                if (support === 'simplementeApoyada') {
+                    if (loadTypeVal === 'distribuida') {
+                        dy = -deflection * 16 * normX * (1 - normX);
+                        localStressFactor = Math.sin(normX * Math.PI);
+                    } else { // puntual o excentrica
+                        // Parabolic deflection for center point load
+                        if (normX <= 0.5) {
+                            dy = -deflection * (4 * normX * (3 - 4 * normX * normX) / 2); // simplified approx shape
+                        } else {
+                            const n2 = 1 - normX;
+                            dy = -deflection * (4 * n2 * (3 - 4 * n2 * n2) / 2);
+                        }
+                        localStressFactor = Math.sin(normX * Math.PI);
+                    }
+                } else if (support === 'empotrada') { // Cantilever fixed at left (-L/2 -> normX = 0)
+                    // Cantilever deflection formula shape: y = delta * (1 - cos(normX * PI / 2)) or cubic
+                    dy = -deflection * (1 - Math.cos(normX * Math.PI / 2));
+                    localStressFactor = (1 - normX); // Maximum stress at fixed support (normX = 0)
+                } else if (support === 'continua') { // Bi-empotrada
+                    dy = -deflection * Math.pow(Math.sin(normX * Math.PI), 2);
+                    // Higher stress at ends and center
+                    localStressFactor = Math.abs(Math.cos(normX * Math.PI * 2)) * 0.7 + 0.3;
+                }
+
+                // Apply vertical displacement to the vertex position along Y axis
+                // In BoxGeometry, Y is height. Let's deform Y downwards based on bending curve
+                // Also account for fiber distance from neutral axis (y position in cross section provides compression/tension distinction)
+                const fiberFactor = (y / (h / 2)); // -1 at bottom, +1 at top
+                
+                // Total vertex Y offset = bending deflection + fiber strain effect
+                const finalY = y + dy * (1 + fiberFactor * 0.1);
+                positionAttr.setY(i, finalY);
+
+                // Color mapping based on stress intensity (Thermal scale: Blue -> Green -> Yellow -> Red)
+                // Combine bending moment factor and fiber distance (top/bottom fibers experience max stress)
+                const stressIntensity = Math.min(Math.max(Math.abs(localStressFactor * fiberFactor * maxStressRatio), 0), 1.5);
+                
+                const color = new THREE.Color();
+                if (stressIntensity < 0.5) {
+                    // Safe: Blue to Green
+                    color.setHSL(0.33 - stressIntensity * 0.33, 0.8, 0.5);
+                } else if (stressIntensity < 1.0) {
+                    // Moderate: Green to Yellow/Orange
+                    color.setHSL(0.33 - (stressIntensity - 0.5) * 0.5, 0.9, 0.5);
+                } else {
+                    // Critical: Orange to Red
+                    color.setHSL(0.08 - Math.min((stressIntensity - 1.0) * 0.15, 0.08), 0.95, 0.5);
+                }
+                
+                colors.push(color.r, color.g, color.b);
+            }
+
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.computeVertexNormals();
+            return geometry;
+        }
+
+        // Build Supports 3D Visuals
+        function buildSupports(support, L) {
+            while(supportsGroup.children.length > 0){ 
+                supportsGroup.remove(supportsGroup.children[0]); 
+            }
+
+            const halfL = L / 2;
+            const matSupport = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5, roughness: 0.3 });
+
+            if (support === 'simplementeApoyada') {
+                // Left Pin Support (Triangle/Cone)
+                const pinGeo = new THREE.ConeGeometry(0.3, 0.6, 4);
+                const leftPin = new THREE.Mesh(pinGeo, matSupport);
+                leftPin.position.set(-halfL, -0.3, 0);
+                leftPin.rotation.z = 0;
+                supportsGroup.add(leftPin);
+
+                // Right Roller Support
+                const rightPin = new THREE.Mesh(pinGeo, matSupport);
+                rightPin.position.set(halfL, -0.3, 0);
+                supportsGroup.add(rightPin);
+
+                // Base pads
+                const baseGeo = new THREE.BoxGeometry(0.8, 0.1, 0.8);
+                const leftBase = new THREE.Mesh(baseGeo, matSupport);
+                leftBase.position.set(-halfL, -0.65, 0);
+                supportsGroup.add(leftBase);
+
+                const rightBase = new THREE.Mesh(baseGeo, matSupport);
+                rightBase.position.set(halfL, -0.65, 0);
+                supportsGroup.add(rightBase);
+
+            } else if (support === 'empotrada') {
+                // Fixed wall on the left
+                const wallGeo = new THREE.BoxGeometry(0.4, 2.5, 1.2);
+                const wall = new THREE.Mesh(wallGeo, matSupport);
+                wall.position.set(-halfL - 0.2, 0, 0);
+                supportsGroup.add(wall);
+
+            } else if (support === 'continua') {
+                // Both ends fixed
+                const wallGeo = new THREE.BoxGeometry(0.4, 2.2, 1.0);
+                const leftWall = new THREE.Mesh(wallGeo, matSupport);
+                leftWall.position.set(-halfL - 0.2, 0, 0);
+                supportsGroup.add(leftWall);
+
+                const rightWall = new THREE.Mesh(wallGeo, matSupport);
+                rightWall.position.set(halfL + 0.2, 0, 0);
+                supportsGroup.add(rightWall);
+            }
+        }
+
+        // Build Loads 3D Visuals (Arrows)
+        function buildLoads(loadTypeVal, L, P_val) {
+            while(loadsGroup.children.length > 0){ 
+                loadsGroup.remove(loadsGroup.children[0]); 
+            }
+
+            const arrowColor = 0xf59e0b;
+
+            if (loadTypeVal === 'puntual' || loadTypeVal === 'excentrica') {
+                const zOffset = loadTypeVal === 'excentrica' ? 0.3 : 0;
+                createArrow3D(0, 1.8, zOffset, 0, -1, 0, 1.2, arrowColor);
+            } else if (loadTypeVal === 'distribuida') {
+                const count = 9;
+                for (let i = 0; i < count; i++) {
+                    const x = -L / 2 + (L / (count - 1)) * i;
+                    createArrow3D(x, 1.5, 0, 0, -1, 0, 0.8, arrowColor);
+                }
+            }
+        }
+
+        function createArrow3D(x, y, z, dirX, dirY, dirZ, length, color) {
+            const dir = new THREE.Vector3(dirX, dirY, dirZ).normalize();
+            const origin = new THREE.Vector3(x, y, z);
+            const arrowHelper = new THREE.ArrowHelper(dir, origin, length, color, 0.3, 0.2);
+            loadsGroup.add(arrowHelper);
+        }
+
+        // Main Simulation Update Calculation & Rendering
+        function updateSimulation() {
+            const matKey = materialSelect.value;
+            const support = supportSelect.value;
+            const loadTypeVal = loadTypeSelect.value;
+            const P = parseFloat(loadMagnitudeInput.value) * 1000; // in Newtons
+            const L = parseFloat(beamLengthInput.value); // in meters
+            const b = parseFloat(sectionWidthInput.value) / 100; // in meters
+            const h = parseFloat(sectionHeightInput.value) / 100; // in meters
+
+            // Update UI labels
+            loadVal.textContent = `${loadMagnitudeInput.value} kN`;
+            lengthVal.textContent = `${L.toFixed(1)} m`;
+            widthVal.textContent = `${sectionWidthInput.value} cm`;
+            heightVal.textContent = `${sectionHeightInput.value} cm`;
+
+            // Structural Formulas (Mechanics of Materials)
+            const I = (b * Math.pow(h, 3)) / 12; // Moment of Inertia (m^4)
+            const Z = (b * Math.pow(h, 2)) / 6;  // Section Modulus (m^3)
+            const E = materials[matKey].E;       // Young's Modulus (Pa)
+            const sigmaAdm = materials[matKey].sigmaAdm * 1e6; // Allowable stress in Pa
+
+            let maxDeflection = 0;
+            let maxMoment = 0;
+
+            if (support === 'simplementeApoyada') {
+                if (loadTypeVal === 'puntual' || loadTypeVal === 'excentrica') {
+                    maxDeflection = (P * Math.pow(L, 3)) / (48 * E * I);
+                    maxMoment = (P * L) / 4;
+                } else { // distribuida (P represents q total or equivalent intensity, let's treat P as total load w*L or q)
+                    const q = P / L; // N/m
+                    maxDeflection = (5 * q * Math.pow(L, 4)) / (384 * E * I);
+                    maxMoment = (q * Math.pow(L, 2)) / 8;
+                }
+            } else if (support === 'empotrada') { // Cantilever
+                if (loadTypeVal === 'puntual' || loadTypeVal === 'excentrica') {
+                    maxDeflection = (P * Math.pow(L, 3)) / (3 * E * I);
+                    maxMoment = P * L;
+                } else {
+                    const q = P / L;
+                    maxDeflection = (q * Math.pow(L, 4)) / (8 * E * I);
+                    maxMoment = (q * Math.pow(L, 2)) / 2;
+                }
+            } else if (support === 'continua') { // Bi-empotrada
+                if (loadTypeVal === 'puntual' || loadTypeVal === 'excentrica') {
+                    maxDeflection = (P * Math.pow(L, 3)) / (192 * E * I);
+                    maxMoment = (P * L) / 8;
+                } else {
+                    const q = P / L;
+                    maxDeflection = (q * Math.pow(L, 4)) / (384 * E * I);
+                    maxMoment = (q * Math.pow(L, 2)) / 12;
+                }
+            }
+
+            const maxStress = maxMoment / Z; // in Pa
+            const maxStressMPa = maxStress / 1e6;
+            const safetyFactor = sigmaAdm / maxStress;
+
+            // Update Result UI Cards
+            resDeflection.textContent = `${(maxDeflection * 1000).toFixed(2)} mm`;
+            resStress.textContent = `${maxStressMPa.toFixed(2)} MPa`;
+
+            if (safetyFactor >= 1.5) {
+                resSafety.textContent = `Seguro (FS: ${safetyFactor.toFixed(1)})`;
+                resSafety.className = "text-lg font-bold text-emerald-400 mt-0.5";
+                safetyIconBg.className = "w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl";
+                safetyIcon.className = "fa-solid fa-shield-halved";
+            } else if (safetyFactor >= 1.0) {
+                resSafety.textContent = `Aceptable (FS: ${safetyFactor.toFixed(1)})`;
+                resSafety.className = "text-lg font-bold text-amber-400 mt-0.5";
+                safetyIconBg.className = "w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-xl";
+                safetyIcon.className = "fa-solid fa-triangle-exclamation";
+            } else {
+                resSafety.textContent = `Falla Estructural (FS: ${safetyFactor.toFixed(1)})`;
+                resSafety.className = "text-lg font-bold text-rose-500 mt-0.5";
+                safetyIconBg.className = "w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 text-xl";
+                safetyIcon.className = "fa-solid fa-skull-crossbones";
+            }
+
+            // Ratio of actual stress to allowable stress for color mapping scaling
+            const maxStressRatio = maxStress / sigmaAdm;
+
+            // Rebuild 3D Beam Mesh
+            if (beamMesh) scene.remove(beamMesh);
+
+            const visualDeflectionScale = Math.min(Math.max(maxDeflection * 80, 0.05), 1.5);
+            const beamGeo = createBeamGeometry(L, b, h, support, loadTypeVal === 'distribuida', loadTypeVal, visualDeflectionScale, maxStressRatio);
+            
+            const beamMat = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                roughness: 0.3,
+                metalness: 0.2,
+                wireframe: isWireframe
+            });
+
+            beamMesh = new THREE.Mesh(beamGeo, beamMat);
+            beamMesh.castShadow = true;
+            beamMesh.receiveShadow = true;
+            scene.add(beamMesh);
+
+            // Rebuild Supports and Loads in 3D
+            buildSupports(support, L);
+            buildLoads(loadTypeVal, L, P);
+        }
+
+        // Animation Loop
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Event Listeners
+        materialSelect.addEventListener('change', updateSimulation);
+        supportSelect.addEventListener('change', updateSimulation);
+        loadTypeSelect.addEventListener('change', updateSimulation);
+        loadMagnitudeInput.addEventListener('input', updateSimulation);
+        beamLengthInput.addEventListener('input', updateSimulation);
+        sectionWidthInput.addEventListener('input', updateSimulation);
+        sectionHeightInput.addEventListener('input', updateSimulation);
+
+        toggleWireframeBtn.addEventListener('click', () => {
+            isWireframe = !isWireframe;
+            toggleWireframeBtn.classList.toggle('bg-accent', isWireframe);
+            toggleWireframeBtn.classList.toggle('text-slate-900', isWireframe);
+            updateSimulation();
+        });
+
+        resetCamBtn.addEventListener('click', () => {
+            camera.position.set(0, 4, 10);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            materialSelect.value = "acero";
+            supportSelect.value = "simplementeApoyada";
+            loadTypeSelect.value = "puntual";
+            loadMagnitudeInput.value = 50;
+            beamLengthInput.value = 6;
+            sectionWidthInput.value = 30;
+            sectionHeightInput.value = 50;
+            isWireframe = false;
+            toggleWireframeBtn.classList.remove('bg-accent', 'text-slate-900');
+            updateSimulation();
+        });
+
+        window.addEventListener('load', () => {
+            init3D();
+        });
+    </script>
 </body>
 </html>
